@@ -1,3 +1,4 @@
 deps
 ebin
 logs
+.erlang.mk.packages.v2

@@ -18,24 +18,34 @@ encode(Algorithm, Payload, Secret, HeaderExtra) ->
 
 decode(Data, Secret) when is_binary(Data) ->
     Parts = binary:split(Data, [<<".">>], [global]),
-    DecodedParts = [base64_decode_no_padding(Item) || Item <- Parts],
-    [HeaderJson,BodyRaw,Signature|_Tail] = DecodedParts,
-    Header = jsx:decode(HeaderJson),
-    AlgorithmStr = proplists:get_value(<<"alg">>, Header),
-    Algorithm = algorithm_to_atom(AlgorithmStr),
+    try
+        DecodedParts = [base64_decode_no_padding(Item) || Item <- Parts],
 
-    Type = proplists:get_value(<<"typ">>, Header),
+        if
+            length(DecodedParts) < 3 ->
+                {error, badtoken};
+            true ->
+                [HeaderJson,BodyRaw,Signature|_Tail] = DecodedParts,
+                Header = jsx:decode(HeaderJson),
+                AlgorithmStr = proplists:get_value(<<"alg">>, Header),
+                Algorithm = algorithm_to_atom(AlgorithmStr),
 
-    ActualSignature = get_signature(Algorithm, BodyRaw, Secret),
+                Type = proplists:get_value(<<"typ">>, Header),
 
-    Jwt = #jwt{typ=Type, body=BodyRaw, alg=Algorithm,
-               sig=Signature, actual_sig=ActualSignature},
+                ActualSignature = get_signature(Algorithm, BodyRaw, Secret),
 
-    if
-        Signature =:= ActualSignature ->
-            {ok, Jwt};
-        true ->
-            {error, badsig, Jwt}
+                Jwt = #jwt{typ=Type, body=BodyRaw, alg=Algorithm,
+                           sig=Signature, actual_sig=ActualSignature},
+
+                if
+                    Signature =:= ActualSignature ->
+                        {ok, Jwt};
+                    true ->
+                        {error, badsig, Jwt}
+                end
+        end
+    catch error:E ->
+              {error, E}
     end.
 
 %% private

@@ -4,7 +4,8 @@
 -include("include/jwt.hrl").
 
 all() ->
-    [encode_decode, decode_with_bad_secret].
+    [encode_decode, decode_with_bad_secret, decode_empty_token,
+     decode_bad_token, decode_bad_token_3_parts].
 
 init_per_suite(Config) -> 
     Config.
@@ -28,3 +29,13 @@ encode_decode(_) ->
 decode_with_bad_secret(_) ->
     {ok, Jwt} = jwt:encode(hs256, [{name, <<"bob">>}, {age, 29}], <<"secret">>),
     {error, badsig, _Decoded} = jwt:decode(Jwt, <<"notsecret">>).
+
+decode_empty_token(_) ->
+    {error, badtoken} = jwt:decode(<<"">>, <<"secret">>).
+
+decode_bad_token(_) ->
+    {error, badtoken} = jwt:decode(<<"asd">>, <<"secret">>).
+
+decode_bad_token_3_parts(_) ->
+    {error, badarg} = jwt:decode(<<"asd.dsa.lala">>, <<"secret">>),
+    {error, {badmatch, false}} = jwt:decode(<<"a.b.c">>, <<"secret">>).

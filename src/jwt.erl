@@ -1,5 +1,5 @@
 -module(jwt).
--export([encode/3, encode/4, decode/2]).
+-export([encode/3, encode/4, decode/2, now_secs/0]).
 
 -include("include/jwt.hrl").
 
@@ -28,6 +28,7 @@ decode(Data, Secret) when is_binary(Data) ->
                 [HeaderJson,BodyRaw,Signature|_Tail] = DecodedParts,
                 Header = jsx:decode(HeaderJson),
                 AlgorithmStr = proplists:get_value(<<"alg">>, Header),
+                Expiration = proplists:get_value(<<"exp">>, Header, noexp),
                 Algorithm = algorithm_to_atom(AlgorithmStr),
 
                 Type = proplists:get_value(<<"typ">>, Header),
@@ -39,9 +40,16 @@ decode(Data, Secret) when is_binary(Data) ->
 
                 if
                     Signature =:= ActualSignature ->
-                        {ok, Jwt};
+                        % TODO: leeway
+                        NowSecs = now_secs(),
+                        if Expiration == noexp orelse Expiration > NowSecs ->
+                            {ok, Jwt};
+                           true ->
+                               {error, {expired, Expiration}}
+                        end;
+
                     true ->
-                        {error, badsig, Jwt}
+                        {error, {badsig, Jwt}}
                 end
         end
     catch error:E ->
@@ -99,3 +107,7 @@ base64_encode_no_padding(Bin) ->
         <<>> ->
             Main
     end.
+
+now_secs() ->
+    {MegaSecs, Secs, _MicroSecs} = now(),
+    (MegaSecs * 1000000 + Secs).

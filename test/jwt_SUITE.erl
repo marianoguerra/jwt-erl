@@ -5,7 +5,8 @@
 
 all() ->
     [encode_decode, decode_with_bad_secret, decode_empty_token,
-     decode_bad_token, decode_bad_token_3_parts].
+     decode_bad_token, decode_bad_token_3_parts, decode_good,
+     decode_expired].
 
 init_per_suite(Config) -> 
     Config.
@@ -28,7 +29,12 @@ encode_decode(_) ->
 
 decode_with_bad_secret(_) ->
     {ok, Jwt} = jwt:encode(hs256, [{name, <<"bob">>}, {age, 29}], <<"secret">>),
-    {error, badsig, _Decoded} = jwt:decode(Jwt, <<"notsecret">>).
+    {error, {badsig, _Decoded}} = jwt:decode(Jwt, <<"notsecret">>).
+
+decode_good(_) ->
+    {ok, Jwt} = jwt:decode(<<"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1IjoiYWRtaW4ifQ.KS4+DGuMMuJTcsDApSmmB11TR+O1FkeUu8ByL2qVUlk">>, <<"changeme">>),
+    Body = jsx:decode(Jwt#jwt.body),
+    <<"admin">> = proplists:get_value(<<"u">>, Body).
 
 decode_empty_token(_) ->
     {error, badtoken} = jwt:decode(<<"">>, <<"secret">>).
@@ -39,3 +45,9 @@ decode_bad_token(_) ->
 decode_bad_token_3_parts(_) ->
     {error, badarg} = jwt:decode(<<"asd.dsa.lala">>, <<"secret">>),
     {error, {badmatch, false}} = jwt:decode(<<"a.b.c">>, <<"secret">>).
+
+decode_expired(_) ->
+    Expiration = jwt:now_secs() - 10,
+    {ok, Jwt} = jwt:encode(hs256, [{name, <<"bob">>}, {age, 29}],
+                           <<"secret">>, [{exp, Expiration}]),
+    {error, {expired, Expiration}} = jwt:decode(Jwt, <<"secret">>).

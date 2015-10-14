@@ -1,7 +1,7 @@
 -module(jwt).
 -export([encode/3, encode/4, decode/2, now_secs/0]).
 
--include("include/jwt.hrl").
+-include("jwt.hrl").
 
 encode(Algorithm, Payload, Secret) ->
     encode(Algorithm, Payload, Secret, []).

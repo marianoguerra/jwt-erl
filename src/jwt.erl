@@ -109,5 +109,5 @@ base64_encode_no_padding(Bin) ->
     end.
 
 now_secs() ->
-    {MegaSecs, Secs, _MicroSecs} = now(),
+    {MegaSecs, Secs, _MicroSecs} = os:timestamp(),
     (MegaSecs * 1000000 + Secs).

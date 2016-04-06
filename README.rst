@@ -44,6 +44,13 @@ Tests
 
     make tests
 
+When changing dependencies
+--------------------------
+
+::
+
+    make rebar.config
+
 License
 -------
 

@@ -12,14 +12,14 @@ encode(Algorithm, Payload, Secret, HeaderExtra) ->
     PayloadJson = jsx:encode(Payload),
     Signature = get_signature(Algorithm, PayloadJson, Secret),
     Parts = [Header, PayloadJson, Signature],
-    EncodedParts = [base64_encode_no_padding(Item) || Item <- Parts],
+    EncodedParts = [base64url:encode(Item) || Item <- Parts],
     JwtData = bin_join(EncodedParts, <<".">>),
     {ok, JwtData}.
 
 decode(Data, Secret) when is_binary(Data) ->
     Parts = binary:split(Data, [<<".">>], [global]),
     try
-        DecodedParts = [base64_decode_no_padding(Item) || Item <- Parts],
+        DecodedParts = [base64url:decode(Item) || Item <- Parts],
 
         if
             length(DecodedParts) < 3 ->
@@ -79,34 +79,6 @@ algorithm_to_crypto_algorithm(hs512) -> sha512.
 get_signature(Algorithm, Data, Secret) ->
     CryptoAlg = algorithm_to_crypto_algorithm(Algorithm),
     crypto:hmac(CryptoAlg, Data, Secret).
-
-base64_decode_no_padding(Base64) when byte_size(Base64) rem 4 == 3 ->
-        base64:decode(<<Base64/bytes, "=">>);
-base64_decode_no_padding(Base64) when byte_size(Base64) rem 4 == 2 ->
-        base64:decode(<<Base64/bytes, "==">>);
-base64_decode_no_padding(Base64) ->
-        base64:decode(Base64).
-
-b64e(X) ->
-    element(X+1,
-	    {$A, $B, $C, $D, $E, $F, $G, $H, $I, $J, $K, $L, $M, $N,
-	     $O, $P, $Q, $R, $S, $T, $U, $V, $W, $X, $Y, $Z,
-	     $a, $b, $c, $d, $e, $f, $g, $h, $i, $j, $k, $l, $m, $n,
-	     $o, $p, $q, $r, $s, $t, $u, $v, $w, $x, $y, $z,
-	     $0, $1, $2, $3, $4, $5, $6, $7, $8, $9, $+, $/}).
-
-base64_encode_no_padding(Bin) ->
-    Split = 3*(byte_size(Bin) div 3),
-    <<Main0:Split/binary,Rest/binary>> = Bin,
-    Main = << <<(b64e(C)):8>> || <<C:6>> <= Main0 >>,
-    case Rest of
-        <<A:6,B:6,C:4>> ->
-            <<Main/binary,(b64e(A)):8,(b64e(B)):8,(b64e(C bsl 2)):8>>;
-        <<A:6,B:2>> ->
-            <<Main/binary,(b64e(A)):8,(b64e(B bsl 4)):8>>;
-        <<>> ->
-            Main
-    end.
 
 now_secs() ->
     {MegaSecs, Secs, _MicroSecs} = os:timestamp(),

@@ -2,3 +2,6 @@ deps
 ebin
 logs
 .erlang.mk.packages.v2
+.erlang.mk
+test/*.beam
+jwt.d

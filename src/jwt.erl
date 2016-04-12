@@ -22,34 +22,37 @@ encode(Algorithm, Payload, Secret, HeaderExtra) ->
     {ok, <<DataEncoded/binary, $., SignatureEncoded/binary>>}.
 
 decode(Data, Secret) when is_binary(Data) ->
-    try binary:split(Data, [<<".">>], [global]) of
-        [HeaderEncoded, PayloadEncoded, SignatureEncoded] ->
-            Header = jsx:decode(base64url:decode(HeaderEncoded)),
-            Type = proplists:get_value(<<"typ">>, Header),
-            AlgorithmStr = proplists:get_value(<<"alg">>, Header),
-            Expiration = proplists:get_value(<<"exp">>, Header, noexp),
-            Algorithm = algorithm_to_atom(AlgorithmStr),
-            DataEncoded = <<HeaderEncoded/binary, $., PayloadEncoded/binary>>,
-            ActualSignature = get_signature(Algorithm, DataEncoded, Secret),
-            Signature = base64url:decode(SignatureEncoded),
-            Payload = jsx:decode(base64url:decode(PayloadEncoded)),
-            Jwt = #jwt{typ=Type, body=Payload, alg=Algorithm,
-                       sig=Signature, actual_sig=ActualSignature},
-            if
-                Signature =:= ActualSignature ->
-                    % TODO: leeway
-                    NowSecs = now_secs(),
-                    if
-                        Expiration == noexp orelse Expiration > NowSecs ->
-                            {ok, Jwt};
-                        true ->
-                            {error, {expired, Expiration}}
-                    end;
-                true ->
-                    {error, {badsig, Jwt}}
-            end;
-        _ ->
-            {error, badtoken}
+    try
+        case binary:split(Data, [<<".">>], [global]) of
+            [HeaderEncoded, PayloadEncoded, SignatureEncoded] ->
+                Header = jsx:decode(base64url:decode(HeaderEncoded)),
+                Type = proplists:get_value(<<"typ">>, Header),
+                AlgorithmStr = proplists:get_value(<<"alg">>, Header),
+                Expiration = proplists:get_value(<<"exp">>, Header, noexp),
+                Algorithm = algorithm_to_atom(AlgorithmStr),
+                DataEncoded = <<HeaderEncoded/binary, $.,
+                                PayloadEncoded/binary>>,
+                ActualSignature = get_signature(Algorithm, DataEncoded, Secret),
+                Signature = base64url:decode(SignatureEncoded),
+                Payload = base64url:decode(PayloadEncoded),
+                Jwt = #jwt{typ=Type, body=Payload, alg=Algorithm,
+                           sig=Signature, actual_sig=ActualSignature},
+                if
+                    Signature =:= ActualSignature ->
+                        % TODO: leeway
+                        NowSecs = now_secs(),
+                        if
+                            Expiration == noexp orelse Expiration > NowSecs ->
+                                {ok, Jwt};
+                            true ->
+                                {error, {expired, Expiration}}
+                        end;
+                    true ->
+                        {error, {badsig, Jwt}}
+                end;
+            _ ->
+                {error, badtoken}
+        end
     catch
         error:E ->
             {error, E}

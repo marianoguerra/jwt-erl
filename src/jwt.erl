@@ -25,10 +25,10 @@ decode(Data, Secret) when is_binary(Data) ->
     try
         case binary:split(Data, [<<".">>], [global]) of
             [HeaderEncoded, PayloadEncoded, SignatureEncoded] ->
-                Header = jsx:decode(base64url:decode(HeaderEncoded)),
-                Type = proplists:get_value(<<"typ">>, Header),
-                AlgorithmStr = proplists:get_value(<<"alg">>, Header),
-                Expiration = proplists:get_value(<<"exp">>, Header, noexp),
+                Header = jsx:decode(base64url:decode(HeaderEncoded), [{return_maps, true}]),
+                Type = maps:get(<<"typ">>, Header, undefined),
+                AlgorithmStr = maps:get(<<"alg">>, Header, undefined),
+                Expiration = maps:get(<<"exp">>, Header, noexp),
                 Algorithm = algorithm_to_atom(AlgorithmStr),
                 DataEncoded = <<HeaderEncoded/binary, $.,
                                 PayloadEncoded/binary>>,
@@ -76,7 +76,7 @@ algorithm_to_crypto_algorithm(hs512) -> sha512.
 
 get_signature(Algorithm, Data, Secret) ->
     CryptoAlg = algorithm_to_crypto_algorithm(Algorithm),
-    crypto:hmac(CryptoAlg, Secret, Data).
+    crypto:mac(hmac, CryptoAlg, Secret, Data).
 
 now_secs() ->
     {MegaSecs, Secs, _MicroSecs} = os:timestamp(),

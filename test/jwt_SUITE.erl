@@ -8,15 +8,19 @@ all() ->
      decode_bad_token, decode_bad_token_3_parts, decode_bad_sig,
      decode_expired].
 
-init_per_suite(Config) -> 
+init_per_suite(Config) ->
     Config.
+
+end_per_suite(Config) ->
+    Config.
+
 
 check_encode_decode(Algorithm) ->
     {ok, Jwt} = jwt:encode(Algorithm, [{name, <<"bob">>}, {age, 29}], <<"secret">>),
     {ok, Decoded} = jwt:decode(Jwt, <<"secret">>),
-    Body = jsx:decode(Decoded#jwt.body),
-    Name = proplists:get_value(<<"name">>, Body),
-    Age = proplists:get_value(<<"age">>, Body),
+    Body = jsx:decode(Decoded#jwt.body, [{return_maps, true}]),
+    Name = maps:get(<<"name">>, Body, undefined),
+    Age = maps:get(<<"age">>, Body, undefined),
     <<"JWT">> = Decoded#jwt.typ,
     Algorithm = Decoded#jwt.alg,
     29 = Age,
@@ -58,7 +62,7 @@ decode_bad_token(_) ->
 
 decode_bad_token_3_parts(_) ->
     {error, badarg} = jwt:decode(<<"asd.dsa.lala">>, <<"secret">>),
-    {error, {badmatch, false}} = jwt:decode(<<"a.b.c">>, <<"secret">>).
+    {error, function_clause} = jwt:decode(<<"a.b.c">>, <<"secret">>).
 
 decode_expired(_) ->
     Expiration = jwt:now_secs() - 10,
